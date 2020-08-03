@@ -1,32 +1,15 @@
 mod film;
 mod player;
 
-use actix_web::{web, HttpResponse, Responder};
-use mongodb::{Client}; // , options::FindOptions};
-// use mongodb::bson::{doc, Bson};
-use std::sync::Mutex;
+use actix_web::{web, HttpResponse, HttpRequest, Responder};
+use mongodb::{Collection, bson::doc};
 use player::Player;
 use film::Film;
 
-// pub struct Database {
-//     pub client: Client,
-// }
-
-// impl Database {
-//     async fn new(&self) -> Database {
-//         let result = Client::with_uri_str("mongodb://localhost:27017").await;
-
-//         match result {
-//             Ok(conn) => Database { client: conn },
-//             Err(_) => None,
-//         }
-        
-//     }
-// }
-
-// GET /
-pub async fn index() -> impl Responder {
-    HttpResponse::Ok().body("This is the index page")
+#[derive(Clone)]
+pub struct DBState {
+    pub film_coll: Collection,
+    pub crew_coll: Collection,
 }
 
 // GET /player/random
@@ -40,8 +23,20 @@ pub async fn get_random_film() -> impl Responder {
 }
 
 // GET /player?name=:name
-pub async fn get_player(_data: web::Data<Mutex<Client>>) -> impl Responder {
-    Player { name: "Charles Chaplin", birth_year: 1889, death_year: 1977 }
+pub async fn get_player(app_data: web::Data<DBState>, req: HttpRequest) -> impl Responder {
+    // Player { name: "Charles Chaplin", birth_year: 1889, death_year: 1977 }
+    // let result = web::block(move || app_data.crewColl.find_one(doc! {}, None)).await;
+    let result = &app_data.crew_coll.find_one(doc! {}, None).await;
+
+    match result {
+        Ok(doc) => {
+            let body = serde_json::to_string(&doc).unwrap();
+            return HttpResponse::Ok().content_type("application/json").body(body);
+        },
+        Err(_) => {
+            return HttpResponse::InternalServerError().finish();
+        },
+    }
 }
 
 // GET /film?title=:title

@@ -1,32 +1,31 @@
 mod database;
 
-use std::{io::Result, env, sync::*};
-use actix_web::{web, App, HttpServer};
+use std::{io::Result, env};
 use mongodb::{options::ClientOptions, Client};
-use database::{index, get_film, get_player, get_random_film, get_random_player};
+use actix_web::{web, App, HttpServer, HttpResponse, Responder};
+use database::{DBState, get_random_film, get_random_player, get_film, get_player};
+
+// GET /
+pub async fn index() -> impl Responder {
+    HttpResponse::Ok().body("This is the index page")
+}
 
 #[actix_rt::main]
 async fn main() -> Result<()> {
     env::set_var("RUST_LOG", "actix_web=debug");
 
-    let mut client_options = ClientOptions::parse("mongodb://localhost:27017").await.unwrap();
-    client_options.app_name = Some("LocalAPI".to_string());
+    let client_options = ClientOptions::parse("mongodb://localhost:27017").await.unwrap();
+    let client = Client::with_options(client_options).unwrap();
+    let conn = client.database("imdb");
 
-    let _client = web::Data::new(Mutex::new(Client::with_options(client_options).unwrap()));
-
-    // Print the databases in our MongoDB cluster:
-    let another_options = ClientOptions::parse("mongodb://localhost:27017").await.unwrap();
-    let client = mongodb::Client::with_options(another_options).unwrap();
-    println!("Databases:");
-    match client.list_database_names(None, None).await {
-        Ok(names) => println!("{:?}", names),
-        Err(_) => { println!("Got an error") }
-    }
-
+    let state = DBState {
+        film_coll: conn.collection("films"),
+        crew_coll: conn.collection("crew"),
+    };
 
     HttpServer::new(move || {
         App::new()
-            .app_data(_client.clone())
+            .data(state.clone())
             .route("/", web::get().to(index))
             .route("/player/random", web::get().to(get_random_player))
             .route("/film/random", web::get().to(get_random_film))
@@ -36,4 +35,5 @@ async fn main() -> Result<()> {
     .bind("localhost:8080")?
     .run()
     .await
+
 }
