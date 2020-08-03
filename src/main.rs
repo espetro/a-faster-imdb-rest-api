@@ -1,9 +1,8 @@
-// mod db;
-mod router;
+mod database;
 
 use std::io::Result;
 use actix_web::{web, App, HttpServer};
-use router::{index, get_film, get_player, get_random_film, get_random_player};
+use database::{index, get_film, get_player, get_random_film, get_random_player};
 
 #[actix_rt::main]
 async fn main() -> Result<()> {
